@@ -1,8 +1,47 @@
-import matter from 'gray-matter';
 import { BlogPost, BlogFrontmatter } from '@/types/blog';
 
+// Simple frontmatter parser that works in the browser
+function parseFrontmatter(content: string) {
+  const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
+  const match = content.match(frontmatterRegex);
+  
+  if (!match) {
+    return { data: {}, content };
+  }
+  
+  const [, frontmatterText, markdownContent] = match;
+  const data: any = {};
+  
+  // Parse YAML-like frontmatter
+  const lines = frontmatterText.split('\n');
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) continue;
+    
+    const key = line.substring(0, colonIndex).trim();
+    const value = line.substring(colonIndex + 1).trim();
+    
+    if (value.startsWith('[') && value.endsWith(']')) {
+      // Parse array
+      const arrayContent = value.slice(1, -1);
+      data[key] = arrayContent.split(',').map(item => item.trim().replace(/"/g, ''));
+    } else if (value.startsWith('"') && value.endsWith('"')) {
+      // Parse string
+      data[key] = value.slice(1, -1);
+    } else if (!isNaN(Number(value))) {
+      // Parse number
+      data[key] = Number(value);
+    } else {
+      // Default to string
+      data[key] = value.replace(/"/g, '');
+    }
+  }
+  
+  return { data, content: markdownContent };
+}
+
 export function parseBlogPost(content: string, slug: string): BlogPost {
-  const { data, content: markdownContent } = matter(content);
+  const { data, content: markdownContent } = parseFrontmatter(content);
   
   return {
     slug,
